@@ -1,14 +1,13 @@
 // szükséges fájl(ok) behívása
 const repository = require("./repository");
-
-// időmérés a process.hrtime segítségével
-const hrtime = process.hrtime;
+const hrtime = process.hrtime; // időmérés a process.hrtime segítségével
 
 
-// Az adatok betöltéséhez idő kell -> async függvénybe burkolás
-(async function wrapper() {
+// Az adatok betöltéséhez idő kell. Meg akarom várni, hogy pl. az adat betöltő promise elkészüljön és az adat beérkezzen -> async függvénybe burkolás
+async function wrapper() {
     
-    const start = hrtime.bigint(); // különböző időpontokban rögzítem változókba az aktuális időt -> számolható az egyes műveletekhez szükséges idő
+    // különböző időpontokban rögzítem változókba az aktuális időt -> később ezek segítségével számolható az egyes műveletekhez szükséges idő
+    const start = hrtime.bigint(); 
 
     // Minden futásnál új nyerőszámokat hozok létre
         const winningNumbers = [];
@@ -22,47 +21,72 @@ const hrtime = process.hrtime;
                 j++;
             } 
         }
-
-        const wins = hrtime.bigint();
     // 
 
     // A nyerőszámok sorba rendezése sort segítségével
-    winningNumbers.sort((a, b) => a-b);
-    
-    const sort = hrtime.bigint();
-    
+        winningNumbers.sort((a, b) => a-b);
+    // 
 
-    // Az adatok, szelvények betöltése lokális JSON fájlból
-    const dataset = await repository.getAll();
+    // Az adatok, szelvények betöltése lokális JSON fájlokból
+    // Mivel már az adatok rögzítése is tervezetten, strukturáltan történik, ezért ~5 millió rekord helyett elegendő csak a min. 1 találatos szelvények
+    // halmazának betöltése. Ez ~4 másodpercről ~0,3 másodpercre csökkenti az adatok betöltésének időszükségletét
+        const dataLoadStart = hrtime.bigint();
 
-    const dataLoad = hrtime.bigint();
+        const dataset = await repository.readFile(winningNumbers); // meghívja a repository.js-ben megírt readFile method-t
 
-    const { ticketCount, prize } = dataset.header; // a feladott szelvények számának kivétele az adatokból destrukturálással
+        const header = await repository.getAll(); // Header betöltése
+        const dataLoadFinish = hrtime.bigint();
+    // 
 
-    // A találatok kiszámítása, 1 object-ben rögzítése key-value párokként
-        const hits = {};
 
-        for (let data of dataset.data) {            
-            // Minden feladott szelvény számjegyein végigmegy, s "kiszórja" a tömbből azokat, amik nem egyeznek a nyerőszámokkal
-            // -> A megmaradó tömb, azaz a szelvényből a nyerő szelvénnyel egyező számok tömbjének hosszát rögzítem
-            const count = data.numbers.filter(num => winningNumbers.includes(num)).length;
+    // A találatok kiszámítása, 1 object-ben rögzítése key-value párokként, az időhatékonyság maximalizálásával 
+        const opStart = hrtime.bigint();
 
-            // Csak akkor nyerő a szelvény, ha legalább 2 találatos. A 0 és 1 találatosokat nem rögzítjük, jelenleg nem hordoz információt
-            if (count >=2) {
-                hits[count] ? hits[count]+=1 : hits[count]= 1; 
-                // Megnézi van-e a találatok object-ban 2/3/4/stb találatos, ha igen, növeli a mennyiséget 1-el, 
-                // ha nincs, akkor létrehoz egy ilyen key-t "1" value-val
+        // minden szelvény id-t betöltök egy darab gyűjtő tömbbe. Az adathalmazban annyi szelvény id van, ahányszor az adott szelvény számai
+        // egyeztek a nyerőszámokkal
+            let collector = [];
+
+            for (let key in dataset) {
+                for (let id of dataset[key]) {
+                    collector.push(id);
+                }
             }
-        }
-    //
 
-    
-    const divider = Object.keys(hits).length; // Az Object.keys visszaadja a key-eket egy tömbben, a hits object keys tömbjének hossza megmondja,
-    // hogy hány felé osztandó a teljes nyeremény egyenlő arányban. Ez lesz az osztó.
+            // rendezem a tömb elemeit növekvő sorrendbe. Ez egy időhatékony művelet, később lehetővé teszi az időhatékony összeszámlálást
+            collector.sort((a, b) => a-b);
+        // 
 
-    const ops = hrtime.bigint();
 
-    // Az eheti adatok rögzítése egy objectban
+        // Létrehozok egy üres objectot, melyben egyedi algoritmus segítségével összeszámlálom az egyes találatok számát
+        const hits = {};
+        let counter = 0;
+
+        collector.forEach((element, index) => {
+
+            // Mivel a gyűjtő tömböt növekvő sorrendbe rendeztem, ezért 1 db bejárással össze tudom számolni melyik szelvény hány találatos
+            if (index!==0) { // A legelső elemnél ne fusson le, mert a tömb "-1." indexe nem értelmezhető
+                if (element === collector[index-1]) { // Ha a jelen elem azonos az előzővel, növelje a számlálót 1-el
+                    counter++;
+                } else if (counter===0) { // Ha nem azonos, és a számláló 0, akkor a találat objectben az 1-es találatok számát növelje
+                    hits[counter+1]? hits[counter+1]++ : hits[counter+1]=1; // Ha még nincs 1-es találat key az obj. -ben, hozza létre
+                } else { // Ha jelen elem nem azonos az előzővel, és a számláló nem 0, akkor a megfelelő találatos key számát növelje 1-el
+                    hits[counter+1]? hits[counter+1]++ : hits[counter+1]=1;
+                    counter=0; // Nullázza le a számlálót, mivel megszűnt az egyezések sorozata
+                }
+            }
+        })
+
+        const opFinish = hrtime.bigint();
+    // 
+        
+
+    const { ticketCount, prize } = header; // a feladott szelvények számának és a heti nyeremény értékének kivétele a headerből destrukturálással
+
+    // Az Object.keys visszaadja a key-eket egy tömbben. A hits object keys tömbjének hosszából egyet levonva (1-es találatokat kivéve) megkapjuk,
+    // hogy hány felé osztandó a teljes nyeremény egyenlő arányban.
+    const divider = Object.keys(hits).length-1; 
+
+    // Az eheti adatok rögzítése egy objectban, mely később felhasználható - kiküldhető express segítségével
         const prizes = {
             prize, // Ha a key és a value azonos, nem szükséges kiírni hogy "prize: prize", rövidíthető
             ticketCount,
@@ -82,21 +106,22 @@ const hrtime = process.hrtime;
             fives: {
                 Prize: hits[5]? Math.round((prize/divider)/(hits[5])) : 0,
                 Count: hits[5]? hits[5] : 0,
-            },
-            timeEfficiency: {
-                calcWinningNumbers: wins - start, // korábban adott időpontban definiált változók segítségével az időszükségletek számolása nanosec-ben
-                sortWinningNumbers: sort - wins,
-                loadDataSet: dataLoad - sort,
-                operationsOnDataset: ops - dataLoad,
             }
-        };
-    // 
+        }; 
 
-    // Az eredmények kiírása konzolba
+
+    // Az eredmények megjelenítése konzolban
     console.log("Results: ", prizes);
 
     const end = hrtime.bigint();
 
+    // korábban adott időpontban definiált változók segítségével az időszükségletek számolása nanosec-ben. majd konzolba kiírása
+    console.log(`${dataLoadFinish - dataLoadStart} nanoseconds to load the dataset`);
+    console.log(`${opFinish - opStart} nanoseconds to complete operations on the dataset`);
+
     // A teljes futásidő kiírása konzolba
-    console.log(`Total runtime: ${end - start} nanoseconds`);
-})(); // Az egész functiont zárójelbe téve a function így rögtön meg is hívható egy "()" segítségével
+    console.log(`${end - start} nanoseconds total runtime`);
+}
+
+// A program lefuttatása
+wrapper(); 

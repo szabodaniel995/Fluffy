@@ -1,6 +1,5 @@
 A feladat megoldása Node -al történt, a választott adattárolási mód: JSON file a merevlemezen.  
-Saját laptopomon a program a feladatot 5 másodpercen belül megoldja (i7 4710hq processzor, Samsung 860 EVO 500Gb SSD), a kért adatokat konzolban a futási idővel együtt kilistázza  
-A konzolba kiírás az egyes találatokhoz tartozó nyereményt kerekítve listázza, emiatt kézzel utóellenőrizve eltérés lehet az össznyeremény, és az egyes nyeremények összeadott összege között
+Saját laptopomon a program a feladatot 0,3 másodpercen belül megoldja (i7 4710hq processzor, Samsung 860 EVO 500Gb SSD), a kért adatokat konzolban a futási idővel együtt kilistázza
 
 Instrukciók a kipróbáláshoz:
 

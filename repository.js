@@ -23,17 +23,33 @@ class Repository {
         }
     }
 
-    // Jelenleg 2 funkcióra van szükség, 1: töltsük be az összes adatot az adattárból, 2: készítsünk új adattárat
+    // Jelenleg 4 funkcióra van szükség, 1: töltsük be headert, 2: készítsünk új headert, írjuk ki a szelvényeket, olvassuk be a szelvényeket
 
-    // Összes adat betöltése async function
+    // Header betöltése async function
     async getAll() {
-        const contents = JSON.parse(await fs.promises.readFile(this.filename)); // fájl olvasása async művelet -> alakítsa vissza JSON formátumból
+        const contents = JSON.parse(await fs.promises.readFile(`header.json`)); // fájl olvasása async művelet -> alakítsa vissza JSON formátumból
         return contents;
     }
  
-    // write all
+    // Header kiírása async function
     async writeAll(data) {
-        await fs.promises.writeFile(this.filename, JSON.stringify(data)); // írja ki JSON stringgé alakítva az adatokat async
+        await fs.promises.writeFile(`header.json`, JSON.stringify(data, null, 2)); // írja ki JSON stringgé alakítva az adatokat async
+    }
+
+    // Külön fileokban az egyes játékszámokat (1-90) tartalmazó szelvény id-k rögzítése
+    async writeFile(data) {
+        for (let key in data) {
+            await fs.promises.writeFile(`${key}.json`, JSON.stringify(data[key]));
+        }
+    }
+
+    // A nyerőszámokkal egyező, tehát min. 1 találatos szelvény id-k betöltése
+    async readFile(nums) {
+        const obj = {};
+        for (let num of nums) {
+            obj[num] = JSON.parse(await fs.promises.readFile(`${num}.json`));
+        }
+        return obj;
     }
 }
 
