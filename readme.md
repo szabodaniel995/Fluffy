@@ -7,3 +7,5 @@ Instrukciók a kipróbáláshoz:
 2. Git bash indítása, ebbe a munkakönyvtárba navigálás
 3. "node index.js" paranccsal a szerver elindítása
 4. Böngészőben a "localhost:80" URL megnyitása / az indítás után Node konzolban megjelenő Ngrok link megnyitása
+
+Kipróbálás után érdemes a "database" mappa tartalmát törölni, mert sok helyet foglalhat. Ezt nem automatizáltam, hogy ellenőrizhető maradjon a feladat.
