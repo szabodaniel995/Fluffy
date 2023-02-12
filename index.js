@@ -1,126 +1,74 @@
 // szükséges fájl(ok) behívása
+const express = require("express");
+const bodyParser = require('body-parser');
+const ngrok = require('ngrok');
+
 const repository = require("./repository");
-const hrtime = process.hrtime; // időmérés a process.hrtime segítségével
+const createDb = require("./databaseCreator");
+const getWin = require("./winningNumbers");
+const indexTemplate = require("./views/results");
+const generateDataTemplate = require("./views/createDb");
 
+const app = express();
 
-// Az adatok betöltéséhez idő kell. Meg akarom várni, hogy pl. az adat betöltő promise elkészüljön és az adat beérkezzen -> async függvénybe burkolás
-async function wrapper() {
+// Public könyvtár elérhetővé tétele, így már innen a CSS file betölthető
+app.use(express.static("./public"));
+app.use(bodyParser.urlencoded({extended:true})); // Post request-k body -ját parse-olni szükséges, megoldás jelenleg: külső library
+
+// Főoldalról átirányít az adatbázis létrehozó oldalra, mert első megnyitásnál még nincs adatbázisunk
+app.get("/", async (req, res) => {
+    res.redirect("/createDatabase");
+})
+
+// ezen a címen visszaküld egy template HTML-t, itt lehet létrehozni tetszés szerinti adatokkal szelvényeket, stb
+app.get("/createDatabase", async (req, res) => {
+    const log = await repository.readAllFiles();
+
+    // Rendezni és számmá alakítani szükséges, másképp a 11. heti adatot az 1. heti adat felett jelenítené meg.
+    log.sort((a, b) => parseInt(a)-parseInt(b));
     
-    // különböző időpontokban rögzítem változókba az aktuális időt -> később ezek segítségével számolható az egyes műveletekhez szükséges idő
-    const start = hrtime.bigint(); 
+    // Visszaküld egy views mappában lementett html-t
+    res.send(generateDataTemplate(log));
+})
 
-    // Minden futásnál új nyerőszámokat hozok létre
-        const winningNumbers = [];
-        let j=0;
+// POST request kap ezen a címen -> elindítja az adatbázis létrehozó .js -t, ami meghívja a repository.js -t -> elkészülnek a fileok a lemezen
+app.post("/createDatabase", async (req, res) => {
 
-        while (j<5) { 
-            const randomNumber = Math.floor(Math.random()*90)+1; // véletlen szám [1, 90] között
+    // req.body -ból a névvel rendelkező inputok értékei kivehetők POST request esetén
+    const { week, prize, ticketCount } = req.body;
 
-            if (!winningNumbers.includes(randomNumber)) { // Egyezések kizárása, egy szám csak egyszer szerepelhet
-                winningNumbers[j]=randomNumber;
-                j++;
-            } 
+    await createDb(week, prize, ticketCount); // a body-ban beérkező adatok továbbadhatók, lehet velük dolgozni
+
+    res.redirect(`/createDatabase`) // Ha elkészültek a fentiek, visszairányít az adatbázis kezelő oldalra
+})
+
+// Ha GET request-t kap a results oldalra, / -jel után tetszőleges számmal, akkor annak a számnak megfelelő heti adatokat tölti be
+app.get("/results/:weekId", async (req, res) => {
+
+    const week = req.params.weekId; // req.params tartalmazza a "/:..." .al megadott értékeket. URL-ben továbbítható így változó érték
+    let data;
+
+    try {
+        data = await repository.getOneFromLog(week); // Próbáljon meg erre a hétre lementett eredményeket kikeresni a log file-ból
+    } catch(err) { // Ha nem sikerül..
+        try {
+            data = await getWin(week); // Próbálja meg már meglévő szelvényekhez megállapítani, hogy hány találat van
+        } catch(err) { // Ha nem sikerül (=még nincs arra a hétre szelvény adatbázis)
+            return res.redirect("/createDatabase"); // Akkor irányítson át az adatbázis kezelő felületre, ahol létrehozható lesz
         }
-    // 
+    }
 
-    // A nyerőszámok sorba rendezése sort segítségével
-        winningNumbers.sort((a, b) => a-b);
-    // 
-
-    // Az adatok, szelvények betöltése lokális JSON fájlokból
-    // Mivel már az adatok rögzítése is tervezetten, strukturáltan történik, ezért ~5 millió rekord helyett elegendő csak a min. 1 találatos szelvények
-    // halmazának betöltése. Ez ~4 másodpercről ~0,3 másodpercre csökkenti az adatok betöltésének időszükségletét
-        const dataLoadStart = hrtime.bigint();
-
-        const dataset = await repository.readFile(winningNumbers); // meghívja a repository.js-ben megírt readFile method-t
-
-        const header = await repository.getAll(); // Header betöltése
-        const dataLoadFinish = hrtime.bigint();
-    // 
+    res.send(indexTemplate(data)); // Ha sikerül -> nyissa meg a megfelelő heti eredmények oldalát, és prezentálja azt
+})
 
 
-    // A találatok kiszámítása, 1 object-ben rögzítése key-value párokként, az időhatékonyság maximalizálásával 
-        const opStart = hrtime.bigint();
+// Nyissa meg a 80-as portot, localhost:80/ URL címen figyelje a beérkező requesteket
+app.listen(80, () => { 
+    console.log("Listening on localhost:80");
+});
 
-        // minden szelvény id-t betöltök egy darab gyűjtő tömbbe. Az adathalmazban annyi szelvény id van, ahányszor az adott szelvény számai
-        // egyeztek a nyerőszámokkal
-            let collector = [];
-
-            for (let key in dataset) {
-                for (let id of dataset[key]) {
-                    collector.push(id);
-                }
-            }
-
-            // rendezem a tömb elemeit növekvő sorrendbe. Ez egy időhatékony művelet, később lehetővé teszi az időhatékony összeszámlálást
-            collector.sort((a, b) => a-b);
-        // 
-
-        // Létrehozok egy üres objectot, melyben egyedi algoritmus segítségével összeszámlálom az egyes találatok mennyiségét
-            const hits = {};
-            let counter = 0;
-
-            // A teljes gyűjtő tömbön végigmegyek, s mivel a gyűjtő tömböt növekvő sorrendbe rendeztem, ezért 1 db bejárással össze tudom számolni melyik szelvény hány találatos
-            collector.forEach((element, index) => {
-
-                if (collector[index+1]) { // A tömb utolsó eleménél járva már nincs mivel összehasonlítani, ezért erre szűrök
-                    if (element === collector[index+1]) { // Ha a jelen elem azonos a következővel, növelje a számlálót 1-el
-                        counter++;
-                    } else { // Ha jelen elem nem azonos a következővel, akkor a megfelelő találatos key számát növelje 1-el 
-                        hits[counter+1]? hits[counter+1]++ : hits[counter+1]=1; // Ha nincs még ilyen key az obj. -ben, hozza létre
-                        counter=0; // Nullázza le a számlálót, mivel megszűnt az egyezések sorozata
-                    }
-                } else {
-                    hits[counter+1]? hits[counter+1]++ : hits[counter+1]=1; // Az utolsó elemnél adja hozzá a számláló jelenlegi állását az obj.-hez
-                }
-            })
-        // 
-        const opFinish = hrtime.bigint();
-        // 
-        
-
-    const { ticketCount, prize } = header; // a feladott szelvények számának és a heti nyeremény értékének kivétele a headerből destrukturálással
-
-    // Az Object.keys visszaadja a key-eket egy tömbben. A hits object keys tömbjének hosszából egyet levonva (1-es találatokat kivéve) megkapjuk,
-    // hogy hány felé osztandó a teljes nyeremény egyenlő arányban.
-    const divider = Object.keys(hits).length-1; 
-
-    // Az eheti adatok rögzítése egy objectban, mely később felhasználható - kiküldhető express segítségével
-        const prizes = {
-            prize, // Ha a key és a value azonos, nem szükséges kiírni hogy "prize: prize", rövidíthető
-            ticketCount,
-            winningNumbers,
-            twos: {
-                Prize: hits[2]? Math.round((prize/divider)/(hits[2])) : 0, // Volt 2-es találat? -> kerekítve azt írja ki. Ha nem volt, legyen ez 0
-                Count: hits[2]? hits[2] : 0, // volt 2-es találat? -> annak darabszámát írja ki. Ha nem volt, legyen ez 0
-            },
-            threes: {
-                Prize: hits[3]? Math.round((prize/divider)/(hits[3])) : 0,
-                Count: hits[3]? hits[3] : 0,
-            },
-            fours: {
-                Prize: hits[4]? Math.round((prize/divider)/(hits[4])) : 0,
-                Count: hits[4]? hits[4] : 0,
-            },
-            fives: {
-                Prize: hits[5]? Math.round((prize/divider)/(hits[5])) : 0,
-                Count: hits[5]? hits[5] : 0,
-            }
-        }; 
-
-
-    // Az eredmények megjelenítése konzolban
-    console.log("Results: ", prizes);
-
-    const end = hrtime.bigint();
-
-    // korábban adott időpontban definiált változók segítségével az időszükségletek számolása nanosec-ben. majd konzolba kiírása
-    console.log(`${dataLoadFinish - dataLoadStart} nanoseconds to load the dataset`);
-    console.log(`${opFinish - opStart} nanoseconds to complete operations on the dataset`);
-
-    // A teljes futásidő kiírása konzolba
-    console.log(`${end - start} nanoseconds total runtime`);
-}
-
-// A program lefuttatása
-wrapper(); 
+// Valamint a konzolba kiírt url címen tegye elérhetővé az oldalt más eszközök számára is
+(async function() {
+    const url = await ngrok.connect({ authtoken:"2L05wZSBvwhYkTsjez8JfjdEKJN_7XtLrVpXefdmnWAbwrDQr" });
+    console.log("Hosted on: ", url);
+})();

@@ -1,0 +1,242 @@
+* {
+    font-family: 'Open Sans', sans-serif;
+}
+
+body {
+    background-color: brown;
+}
+
+.navbar {
+    background-color: #c80404;
+}
+
+
+
+.tableTopper {
+    margin-top: 5vh;
+    background: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 16px 0;
+}
+
+.tableTopper span {
+    color: white;
+    font-weight: bold;
+    font-size: 24px;
+}
+
+.tableBottom button {
+    width: 100%;
+}
+
+.topButton {
+    display:none;
+}
+
+
+
+
+.tableWrap {
+    width: 80%;
+    margin-top: 5vh;
+}
+
+tbody {
+    text-align: center;
+    border: none;
+    font-weight: bold;
+}
+
+tbody a {
+    text-decoration: none;
+    color: white;
+}
+
+th {
+    color: white;
+}
+
+td {
+    border: none;
+    color: white;
+}
+
+
+
+.winningTitle {
+    text-align: center;
+    margin-top: 5vh;
+    font-size: 36px;
+    color: white;
+}
+
+.winning {
+    height: 100px;
+    width: 95vw;
+    margin-top: 3vh;
+    display: flex;
+    justify-content:space-around;
+    align-items: center;
+}
+
+.winningDiv {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #f8f9fa;
+    border-radius: 50%;
+    border: 2px solid black;
+}
+
+.theWinningNums {
+    font-size: 32px;
+}
+
+
+
+
+.weekButtonsDiv {
+    display: flex;
+    justify-content:space-between;
+}
+
+.runtimeInfo {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+}
+
+.runtimeInfo .btn {
+    width: 95%;
+}
+
+.collapseWrapper {
+    width: 95%;
+}
+
+.winningTitle a {
+    display: none;
+}
+
+
+
+
+
+@media (min-width: 576px) {
+
+    .tableWrap {
+        margin-top: 10vh;
+    }
+
+    .winningTitle {
+        font-size: 64px;
+    }
+
+    .winningDiv {
+        width: 80px;
+        height: 80px;
+    }
+    
+    .theWinningNums {
+        font-size: 48px;
+    }
+}
+
+
+
+@media (min-width: 768px) {
+
+    .runtimeInfo {
+        margin-top: 30px;
+    }
+
+    .runtimeInfo .btn {
+        width: 60vw;
+    }
+
+    .collapseWrapper {
+        width: 60vw;
+    }
+
+    .container-fluid {
+        display: none;
+    }
+
+    .winningTitle {
+        margin-top: 5vh;
+        font-size: 64px;
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+    }
+
+    .winningTitle a {
+        display: flex;
+        align-items: center;
+    }
+
+    .winningTitle button {
+        width: 5vw;
+        height: 50px;
+        color: brown;
+    }
+
+    .winning {
+        width: 60vw;
+        display: flex;
+        justify-content:space-around;
+        align-items: center;
+    }
+
+    .tableWrap {
+        width: 60%;
+        margin-top: 5vh;
+    }
+
+    .tableTopper {
+        margin-top: 10vh;
+        justify-content: space-between;
+        text-align: left;
+    }
+
+    .topButton {
+        display: block;
+    }
+
+    .bottomButton {
+        display: none;
+    }
+
+    tbody {
+        text-align: left;
+        border: none;
+    }
+
+    td {
+        padding-left: 20px !important;
+    }
+}
+
+
+
+@media (min-width: 992px) {
+    
+    .winningTitle {
+        font-size: 96px;
+    }
+}
+
+
+
+@media (min-width: 1200px) {
+
+    .winningTitle {
+        font-size: 128px;
+    }
+}
+
