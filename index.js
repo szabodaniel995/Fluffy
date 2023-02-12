@@ -56,28 +56,27 @@ async function wrapper() {
             collector.sort((a, b) => a-b);
         // 
 
+        // Létrehozok egy üres objectot, melyben egyedi algoritmus segítségével összeszámlálom az egyes találatok mennyiségét
+            const hits = {};
+            let counter = 0;
 
-        // Létrehozok egy üres objectot, melyben egyedi algoritmus segítségével összeszámlálom az egyes találatok számát
-        const hits = {};
-        let counter = 0;
+            // A teljes gyűjtő tömbön végigmegyek, s mivel a gyűjtő tömböt növekvő sorrendbe rendeztem, ezért 1 db bejárással össze tudom számolni melyik szelvény hány találatos
+            collector.forEach((element, index) => {
 
-        collector.forEach((element, index) => {
-
-            // Mivel a gyűjtő tömböt növekvő sorrendbe rendeztem, ezért 1 db bejárással össze tudom számolni melyik szelvény hány találatos
-            if (index!==0) { // A legelső elemnél ne fusson le, mert a tömb "-1." indexe nem értelmezhető
-                if (element === collector[index-1]) { // Ha a jelen elem azonos az előzővel, növelje a számlálót 1-el
-                    counter++;
-                } else if (counter===0) { // Ha nem azonos, és a számláló 0, akkor a találat objectben az 1-es találatok számát növelje
-                    hits[counter+1]? hits[counter+1]++ : hits[counter+1]=1; // Ha még nincs 1-es találat key az obj. -ben, hozza létre
-                } else { // Ha jelen elem nem azonos az előzővel, és a számláló nem 0, akkor a megfelelő találatos key számát növelje 1-el
-                    hits[counter+1]? hits[counter+1]++ : hits[counter+1]=1;
-                    counter=0; // Nullázza le a számlálót, mivel megszűnt az egyezések sorozata
+                if (collector[index+1]) { // A tömb utolsó eleménél járva már nincs mivel összehasonlítani, ezért erre szűrök
+                    if (element === collector[index+1]) { // Ha a jelen elem azonos a következővel, növelje a számlálót 1-el
+                        counter++;
+                    } else { // Ha jelen elem nem azonos a következővel, akkor a megfelelő találatos key számát növelje 1-el 
+                        hits[counter+1]? hits[counter+1]++ : hits[counter+1]=1; // Ha nincs még ilyen key az obj. -ben, hozza létre
+                        counter=0; // Nullázza le a számlálót, mivel megszűnt az egyezések sorozata
+                    }
+                } else {
+                    hits[counter+1]? hits[counter+1]++ : hits[counter+1]=1; // Az utolsó elemnél adja hozzá a számláló jelenlegi állását az obj.-hez
                 }
-            }
-        })
-
+            })
+        // 
         const opFinish = hrtime.bigint();
-    // 
+        // 
         
 
     const { ticketCount, prize } = header; // a feladott szelvények számának és a heti nyeremény értékének kivétele a headerből destrukturálással
